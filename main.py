@@ -1,10 +1,7 @@
 __authors__ = ['1638618, 1636517, 1633311']
 __group__ = 'GM08:30_3'
 
-import numpy as np
 from copy import copy, deepcopy
-import pandas as pnd
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
