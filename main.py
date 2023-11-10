@@ -7,12 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.model_selection import cross_val_score
-
-# Funció per calcular l'entropia
-def entropy(y):
-    hist = np.bincount(y)
-    ps = hist / len(y)
-    return -np.sum([p * np.log2(p) for p in ps if p > 0])
+from sklearn.model_selection import train_test_split
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
 
 
 # Classe Node
@@ -28,107 +25,142 @@ class Node:
         return self.value is not None
 
 
-# Classe ID3
-class ID3:
+# Funció per calcular l'entropia total.
+def entropy_total(S, X_train, label):
+    total_row = S.shape[0]
+    entropy = 0
 
-    def __init__(self, min_samples_split=2, max_depth=100, n_feats=None):
-        self.min_samples_split = min_samples_split
-        self.max_depth = max_depth
-        self.n_feats = n_feats
-        self.root = None
+    for c in X_train:
+        class_count = S[S[label] == c].shape[0]
+        class_entropy = - (class_count / total_row) * np.log2(class_count / total_row)
+        entropy += class_entropy
 
-    def fit(self, X, y):
-        self.n_feats = X.shape[1] if not self.n_feats else min(self.n_feats, X.shape[1])
-        self.root = self._grow_tree(X, y)
+    return entropy
 
-    def predict(self, X):
-        return np.array([self._traverse_tree(x, self.root) for x in X])
+# Funció per calcular l'entropia d'una clase especifica.
+def entropy_specific(X_train, feature, label):
+    class_count = feature.shape[0]
+    entropy = 0
 
-    def _grow_tree(self, X, y, depth=0):
-        n_samples, n_features = X.shape
-        n_labels = len(np.unique(y))
+    for c in X_train:
+        label_class_count = feature[feature[label] == c].shape[0]
+        class_entropy = 0
+        if label_class_count != 0:
+            class_probability = label_class_count / class_count
+            class_entropy = - class_probability * np.log2(class_probability)
+        entropy += class_entropy
+    return entropy
 
-        # criteris d'aturada
-        if (depth >= self.max_depth
-                or n_labels == 1
-                or n_samples < self.min_samples_split):
-            leaf_value = self._most_common_label(y)
-            return Node(value=leaf_value)
+def gainID3(S, X_train, label, feature):
+    feature_value_list = S[feature].unique()  # unqiue values of the feature
+    total_row = S.shape[0]
+    feature_info = 0.0
 
-        feat_idxs = np.random.choice(n_features, self.n_feats, replace=False)
+    for feature_value in feature_value_list:
+        feature_value_data = S[S[feature] == feature_value]  # filtering rows with that feature_value
+        feature_value_count = feature_value_data.shape[0]
+        feature_value_entropy = entropy_specific(X_train, label, feature_value_data)
+        feature_value_probability = feature_value_count / total_row
+        feature_info += feature_value_probability * feature_value_entropy
 
-        # creixement de l'arbre
-        best_feat, best_thresh = self._best_criteria(X, y, feat_idxs)
-        left_idxs, right_idxs = self._split(X[:, best_feat], best_thresh)
-        left = self._grow_tree(X[left_idxs, :], y[left_idxs], depth+1)
-        right = self._grow_tree(X[right_idxs, :], y[right_idxs], depth+1)
-        return Node(best_feat, best_thresh, left, right)
+    return entropy_total(S, X_train, label) - feature_info
 
-    def _best_criteria(self, X, y, feat_idxs):
-        best_gain = -1
-        split_idx, split_thresh = None, None
-        for feat_idx in feat_idxs:
-            X_column = X[:, feat_idx]
-            thresholds = np.unique(X_column)
-            for threshold in thresholds:
-                gain = self._information_gain(y, X_column, threshold)
-
-                if gain > best_gain:
-                    best_gain = gain
-                    split_idx = feat_idx
-                    split_thresh = threshold
-
-        return split_idx, split_thresh
-
-    def _information_gain(self, y, X_column, split_thresh):
-        # parent entropy
-        parent_entropy = entropy(y)
-
-        # generate split
-        left_idxs, right_idxs = self._split(X_column, split_thresh)
-
-        if len(left_idxs) == 0 or len(right_idxs) == 0:
-            return 0
-
-        # compute the weighted avg. of the loss for the children
-        n = len(y)
-        n_l, n_r = len(left_idxs), len(right_idxs)
-        e_l, e_r = entropy(y[left_idxs]), entropy(y[right_idxs])
-        child_entropy = (n_l / n) * e_l + (n_r / n) * e_r
-
-        # information gain is difference in loss before vs. after split
-        ig = parent_entropy - child_entropy
-        return ig
-
-    def _split(self, X_column, split_thresh):
-        left_idxs = np.argwhere(X_column <= split_thresh).flatten()
-        right_idxs = np.argwhere(X_column > split_thresh).flatten()
-        return left_idxs, right_idxs
-
-    def _traverse_tree(self, x, node):
-        if node.is_leaf_node():
-            return node.value
-
-        if x[node.feature] <= node.threshold:
-            return self._traverse_tree(x, node.left)
-        return self._traverse_tree(x, node.right)
-
-    def _most_common_label(self, y):
-        counter = Counter(y)
-        most_common = counter.most_common(1)[0][0]
-        return most_common
-
-
-# Funció per eliminar files amb valors buits
+# Funció per eliminar files amb valors buits.
 def remove_missing_values(df):
     return df.dropna()
 
 
-# Funció per discretitzar valors contínues
+# Funció per discretitzar valors contínues.
 def discretize(df, columns):
     for column in columns:
         df[column] = pd.qcut(df[column], q=4, labels=False)
     return df
+
+def ID3(S, X_train, label):
+    feature_list = S.columns.drop(label)
+
+    max_info_gain = -1
+    max_info_feature = None
+
+    for feature in feature_list:  # for each feature in the dataset
+        feature_info_gain = gainID3(S, X_train, label, feature)
+        if max_info_gain < feature_info_gain:  # selecting feature name with highest information gain
+            max_info_gain = feature_info_gain
+            max_info_feature = feature
+
+    return max_info_feature
+
+def C45(S, X_train, label):
+    pass
+
+def TreePruning(S, T, y):
+    # Seleccionar un nodo t en T de manera que al podarlo se mejora máximamente algún criterio de evaluación.
+    t = select_node_to_prune(T, S, y)
+
+    # Podar el nodo t si existe.
+    while t is not None:
+        T = pruned(T, t)
+        t = select_node_to_prune(T, S, y)
+
+    return T
+
+
+def StoppingCriterion(S):
+    # Cuando todos los ejemplos que quedan pertenecen a la misma clase.
+    if np.unique(S).size == 1:
+        return True
+
+    # Cuando no quedan atributos por los que ramificar.
+    if S.shape[1] == 0:
+        return True
+
+    # Cuando no quedan datos para clasificar.
+    if S.shape[0] == 0:
+        return True
+
+    return False
+
+
+def SplitCriterion(S, X_train, label, tipus):
+    if tipus is 0:  # ID 3
+        return ID3(S, X_train, label)
+    elif tipus is 1:  # C4.5
+        return C45()
+
+    return None
+
+
+def treeGrowing(S, X_train, y_train, tipusSplit):
+    # Crear un nuevo árbol T con un solo nodo raíz.
+    T = Node()
+
+    if StoppingCriterion(S):
+        T.value = np.bincount(y_train).argmax()  # Etiqueta con el valor más común de y en S.
+    else:
+        # Encontrar el atributo a que obtiene el mejor SplitCriterion.
+        a = SplitCriterion(S, X_train, y_train, tipusSplit)
+
+        # Etiquetar t con a.
+        T.feature = a
+
+        # Para cada valor vi de a.
+        for vi in np.unique(X_train[:, a]):
+            # Crear un subárbol para cada valor único de a.
+            sub_S = S[X_train[:, a] == vi]
+            usb_y = y_train[X_train[:, a] == vi]
+            sub_X = X_train[X_train[:, a] == vi]
+
+            # Crear un subárbol con las instancias que tienen a = vi.
+            subtree = treeGrowing(sub_S, sub_X, usb_y, SplitCriterion)
+
+            # Conectar el nodo raíz de T a Subtreei con una arista etiquetada como vi.
+            if vi <= T.threshold:
+                T.left = subtree
+            else:
+                T.right = subtree
+
+        # Devolver el árbol podado.
+    return TreePruning(S, T, y_train)
 
 
 # Funció per visualitzar l'arbre
@@ -146,16 +178,25 @@ def print_tree(node, depth=0):
 def main():
     # Carregar les dades
     df = pd.read_csv('train.csv')
+    nan_count = df.isnull().sum()
+    nan_percentage = df.isnull().mean() * 100
+    print("Número de NaNs por columna:")
+    print(nan_count)
+    print("\nPorcentaje de NaNs por columna:")
+    print(nan_percentage)
 
-    # Tractament de valors buits
+    # Tractament de valors buits.
     df = remove_missing_values(df)
 
     # Discretització de valors contínues
     df = discretize(df, ['column1', 'column2'])
 
     # Preparar les dades per a l'entrenament
+    S = df.values  # El conjunto de entrenamiento completo
     X = df.drop(columns=['price_range']).values
     y = df['price_range'].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
 
     # Crear i entrenar el model
     model = ID3(max_depth=10)
