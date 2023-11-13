@@ -84,7 +84,7 @@ def ID3(S, X_train, label):
 
     for feature in feature_list:  # for each feature in the dataset
         feature_info_gain = gainID3(S, X_train, label, feature)
-        if max_info_gain < feature_info_gain:  # selecting feature name with highest information gain
+        if max_info_gain < feature_info_gain:  # selecting feature name with the highest information gain
             max_info_gain = feature_info_gain
             max_info_feature = feature
 
@@ -122,9 +122,9 @@ def StoppingCriterion(S):
 
 
 def SplitCriterion(S, X_train, label, tipus):
-    if tipus is 0:  # ID 3
+    if tipus == 0:  # ID 3
         return ID3(S, X_train, label)
-    elif tipus is 1:  # C4.5
+    elif tipus == 1:  # C4.5
         return C45()
 
     return None
@@ -189,7 +189,20 @@ def main():
     df = remove_missing_values(df)
 
     # Discretització de valors contínues
-    df = discretize(df, ['column1', 'column2'])
+    ''' Nota: Llista de columnes amb valors continus que s'haurien de discretitzar
+    battery_power
+    fc (Front Camera Megapixels)
+    int_memory (Internal Memory in GB)
+    mobile_wt (Mobile Weight in grams)
+    pc (Primary Camera Megapixels)
+    px_height (Pixel Height)
+    px_width (Pixel Width)
+    ram (RAM capacity in MB)
+    sc_h (Screen Height in cm)
+    sc_w (Screen Width in cm)
+    talk_time (Talk Time in hours)
+    '''
+    #df = discretize(df, ['column1', 'column2'])
 
     # Preparar les dades per a l'entrenament
     S = df.values  # El conjunto de entrenamiento completo
@@ -200,13 +213,13 @@ def main():
 
     # Crear i entrenar el model
     model = ID3(max_depth=10)
-    model.fit(X, y)
+    model.fit(X_train, y_train)
 
     # Visualització de l'arbre
     print_tree(model.root)
 
     # Validació creuada
-    scores = cross_val_score(model, X, y, cv=5)
+    scores = cross_val_score(model, X_train, y_train, cv=5)
     print(f"Cross-validation accuracy: {np.mean(scores)}")
 
 
