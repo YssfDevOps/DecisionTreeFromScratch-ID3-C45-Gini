@@ -25,8 +25,6 @@ def discretize(df, columns):
         df[column] = pd.qcut(df[column], q=4, labels=False)
     return df
 
-
-
 # Funció per visualitzar l'arbre
 def print_tree(node, depth=0):
     if node.is_leaf_node():
@@ -49,41 +47,17 @@ def main():
     print("\nPorcentaje de NaNs por columna:")
     print(nan_percentage)
 
-
-
     # Tractament de valors buits APARTAT C.
     df = remove_missing_values(df)
 
     # Tractament de valors buits APARTAT B.
     imputer = SimpleImputer(strategy='mean')
+
     # Ajustar y transformar los datos.
-    df['CUALQUIER ATRIBUTO'] = imputer.fit_transform(df['CUALQUIER ATRIBUTO'].values.reshape(-1, 1))
-
-
-    # Discretització de valors contínues
-    ''' Nota: Llista de columnes amb valors continus que s'haurien de discretitzar
-    battery_power
-    fc (Front Camera Megapixels)
-    int_memory (Internal Memory in GB)
-    mobile_wt (Mobile Weight in grams)
-    pc (Primary Camera Megapixels)
-    px_height (Pixel Height)
-    px_width (Pixel Width)
-    ram (RAM capacity in MB)
-    sc_h (Screen Height in cm)
-    sc_w (Screen Width in cm)
-    talk_time (Talk Time in hours)
-    '''
-
-    ''' DISCRETICACIÓN 
-    columnas_continuas = ['battery_power', 'clock_speed', 'fc', 'int_memory', 'm_dep', 'mobile_wt', 'n_cores', 'pc',
-                          'px_height', 'px_width', 'ram', 'sc_h', 'sc_w', 'talk_time']
-    df = discretize(df, columnas_continuas)
-    '''
-
+    discretize(df, ['battery_power', 'clock_speed', 'fc', 'ram', 'talk_time', 'int_memory', 'm_dep', 'mobile_wt',
+                    'pc', 'px_height', 'px_width', 'sc_h', 'sc_w'])
 
     # Preparar les dades per a l'entrenament
-    S = df.values  # El conjunto de entrenamiento completo
     X = df.drop(columns=['price_range']).values
     y = df['price_range'].values
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

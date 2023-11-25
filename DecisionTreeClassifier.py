@@ -3,9 +3,8 @@ import numpy as np
 
 # Classe Node
 class Node:
-    def __init__(self, feature=None, threshold=None, left=None, right=None, *, value=None):
+    def __init__(self, feature=None, left=None, right=None, value=None):
         self.feature = feature
-        self.threshold = threshold
         self.left = left
         self.right = right
         self.value = value
@@ -16,6 +15,7 @@ class Node:
 
 class DecisionTreeCasifier:
     def __init__(self, criterion='ID3'):
+        self.root = None
         self.root_node = Node()
         self.criterion = criterion  # {'ID3_Entropy', 'C45_Entropy', 'ID3_Gini', 'C45_Gini'}
 
@@ -131,19 +131,19 @@ class DecisionTreeCasifier:
                 split_info -= carac_probabilidad * np.log2(carac_probabilidad)
 
         if split_info != 0:
-            gain_ratio = (1 - carac_gini) / split_info
+            gain_ratio = (1 - self.calculo_gini(X_train, clases, atributo)) / split_info
         else:
             gain_ratio = 0
 
         return gain_ratio
 
-    def C45(self, X_train, clases, atributo, tipo='guany'):
+    def C45(self, X_train, clases, atributo, tipo=1):
         gain_ratio_max = -1
         caracteristica_max = None
         caracteristicas = X_train.columns.drop(atributo)
 
         for carac in caracteristicas:
-            if tipo == 'guany':
+            if tipo == 1:
                 gain_ratio = self.gain_ratio_guany(X_train, clases, atributo, carac)
             else:  # asumimos que cualquier otro valor para 'tipo' debería usar 'gini'
                 gain_ratio = self.gain_ratio_gini(X_train, clases, atributo, carac)
@@ -154,62 +154,69 @@ class DecisionTreeCasifier:
 
         return caracteristica_max
 
-    def SplitCriterion(self, dataset, X_train, label):  # {'ID3_Entropy', 'C45_Entropy', 'ID3_Gini', 'C45_Gini'}
+    def SplitCriterion(self, X_train, clases, atributo):  # {'ID3_Entropy', 'C45_Entropy', 'C45_Gini'}
         if self.criterion == 'ID3_Gini':  # ID 3 Gini
-            return self.ID3(dataset, X_train, label, 0)
+            return self.ID3(X_train, clases, atributo)
         elif self.criterion == 'C45_Entropy':  # C4.5 Entropy
-            return self.C45(dataset, X_train, label, 1)
+            return self.C45(X_train, clases, atributo, 1)
         elif self.criterion == 'C45_Gini':  # C4.5 Gini
-            return self.C45(dataset, X_train, label, 0)
-        else: # ID3_Entropy by default
-            return self.ID3(dataset, X_train, label, 1)  # ID 3 Entropy
+            return self.C45(X_train, clases, atributo, 0)
+        else:  # ID3_Entropy by default
+            return self.ID3(X_train, clases, atributo)  # ID 3 Entropy
 
-    def StoppingCriterion(self, dataset):
+    def StoppingCriterion(self, X_train):
         # Cuando todos los ejemplos que quedan pertenecen a la misma clase.
-        if np.unique(dataset).size == 1:
+        if np.unique(X_train).size == 1:
             return True
 
         # Cuando no quedan atributos por los que ramificar.
-        if dataset.shape[1] == 0:
+        if X_train.shape[1] == 0:
             return True
 
         # Cuando no quedan datos para clasificar.
-        if dataset.shape[0] == 0:
+        if X_train.shape[0] == 0:
             return True
 
         return False
 
-    def tree_growing(self, dataset, X_train, y_train):
-        # Crear un nuevo árbol T con un solo nodo raíz.
-        T = self.root_node
+    def tree_growing(self, X_train, objectiu, clases, tipus):
+        self.criterion = tipus
+        if self.StoppingCriterion(X_train) is False:
+            caracteristica = self.SplitCriterion(X_train, clases, objectiu)
 
-        if self.StoppingCriterion(dataset):
-            T.value = np.bincount(y_train).argmax()  # Etiqueta con el valor más común de y en S.
-        else:
-            # Encontrar el atributo a que obtiene el mejor SplitCriterion.
-            a = self.SplitCriterion(dataset, X_train, y_train)
+            # Aquí es donde se genera el subárbol
+            feature_value_count_dict = X_train[caracteristica].value_counts(sort=False)
+            tree = {}
 
-            # Etiquetar t con a.
-            T.feature = a
+            for feature_value, count in feature_value_count_dict.iteritems():
+                feature_value_data = X_train[X_train[caracteristica] == feature_value]
 
-            # Para cada valor vi de a.
-            for vi in np.unique(X_train[:, a]):
-                # Crear un subárbol para cada valor único de a.
-                sub_S = dataset[X_train[:, a] == vi]
-                usb_y = y_train[X_train[:, a] == vi]
-                sub_X = X_train[X_train[:, a] == vi]
+                assigned_to_node = False
+                for c in clases:
+                    class_count = feature_value_data[feature_value_data[objectiu] == c].shape[0]
 
-                # Crear un subárbol con las instancias que tienen a = vi.
-                subtree = self.tree_growing(sub_S, sub_X, usb_y)
+                    if class_count == count:
+                        tree[feature_value] = Node(value=c)
+                        X_train = X_train[X_train[caracteristica] != feature_value]
+                        assigned_to_node = True
+                if not assigned_to_node:
+                    tree[feature_value] = Node(value="?")
 
-                # Conectar el nodo raíz de T a Subtreei con una arista etiquetada como vi.
-                if vi <= T.threshold:
-                    T.left = subtree
-                else:
-                    T.right = subtree
+            next_root = None
 
-            # Devolver el árbol podado.
-        return self.TreePruning(dataset, T, y_train)
+            if self.root != None:
+                self.root.feature[caracteristica] = dict()
+                self.root.feature[caracteristica][caracteristica] = tree
+                next_root = self.root.feature[caracteristica][caracteristica]
+            else:
+                self.root = Node(feature=caracteristica)
+                self.root.feature[caracteristica] = tree
+                next_root = self.root.feature[caracteristica]
+
+            for node, branch in list(next_root.items()):
+                if branch.value == "?":
+                    feature_value_data = X_train[X_train[caracteristica] == node]
+                    self.tree_growing(feature_value_data, objectiu, clases, tipus)
 
     def predict_rec(self, X, node):
         if node.is_leaf_node():
