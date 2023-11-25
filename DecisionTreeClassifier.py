@@ -41,7 +41,7 @@ class DecisionTreeCasifier:
 
         for clase in clases:
             num_total_atributo = datos_atributo[datos_atributo[atributo] == clase].shape[0]
-            entropia_atributo = (- (num_total_atributo/dim_fila)*np.log2(num_total_atributo/dim_fila)) if num_total_atributo > 0 else 0
+            entropia_atributo = (- (num_total_atributo/dim_fila)*np.log2(num_total_atributo/dim_fila)) if num_total_atributo != 0 else 0
             entropia_total += entropia_atributo
 
         return entropia_total
@@ -131,7 +131,7 @@ class DecisionTreeCasifier:
                 split_info -= carac_probabilidad * np.log2(carac_probabilidad)
 
         if split_info != 0:
-            gain_ratio = (1 - self.calculo_gini(X_train, clases, atributo)) / split_info
+            gain_ratio = (1 - carac_gini) / split_info
         else:
             gain_ratio = 0
 
