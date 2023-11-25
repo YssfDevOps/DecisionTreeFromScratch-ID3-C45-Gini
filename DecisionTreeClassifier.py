@@ -80,8 +80,9 @@ class DecisionTreeCasifier:
 
         for clase in clases:
             num_total_clases = X_train[X_train[atributo] == clase].shape[0]
-            ganancia_info_total_clase = - (num_total_clases / dim_fila) * np.log2(num_total_clases / dim_fila)
-            ganancia_info_total += ganancia_info_total_clase
+            if num_total_clases != 0:
+                ganancia_info_total_clase = - (num_total_clases / dim_fila) * np.log2(num_total_clases / dim_fila)
+                ganancia_info_total += ganancia_info_total_clase
 
         return ganancia_info_total
 
@@ -96,7 +97,7 @@ class DecisionTreeCasifier:
 
         return gini_total
 
-    def gain_ratio(self, X_train, clases, atributo, caracteristica):
+    def gain_ratio_guany(self, X_train, clases, atributo, caracteristica):
         split_info = 0
         dim_fila = X_train.shape[0]
         valors_caracteristica = X_train[caracteristica].unique()
@@ -106,18 +107,47 @@ class DecisionTreeCasifier:
             carac_dim = carac_datos.shape[0]
             carac_probabilidad = carac_dim / dim_fila
             carac_ganancia_info = self.calculo_ganancia_info(carac_datos, clases, atributo)
-            split_info -= carac_probabilidad * np.log2(carac_probabilidad) if carac_probabilidad > 0 else 0
+            if carac_probabilidad > 0:
+                split_info -= carac_probabilidad * np.log2(carac_probabilidad)
 
-        gain_ratio = (self.calculo_ganancia_info(X_train, clases, atributo) - carac_ganancia_info) / split_info
+        if split_info != 0:
+            gain_ratio = (self.calculo_ganancia_info(X_train, clases, atributo) - carac_ganancia_info) / split_info
+        else:
+            gain_ratio = 0
+
         return gain_ratio
 
-    def C45(self, X_train, clases, atributo):
+    def gain_ratio_gini(self, X_train, clases, atributo, caracteristica):
+        split_info = 0
+        dim_fila = X_train.shape[0]
+        valors_caracteristica = X_train[caracteristica].unique()
+
+        for carac in valors_caracteristica:
+            carac_datos = X_train[X_train[caracteristica] == carac]
+            carac_dim = carac_datos.shape[0]
+            carac_probabilidad = carac_dim / dim_fila
+            carac_gini = self.calculo_gini(carac_datos, clases, atributo)
+            if carac_probabilidad > 0:
+                split_info -= carac_probabilidad * np.log2(carac_probabilidad)
+
+        if split_info != 0:
+            gain_ratio = (1 - self.calculo_gini(X_train, clases, atributo)) / split_info
+        else:
+            gain_ratio = 0
+
+        return gain_ratio
+
+    def C45(self, X_train, clases, atributo, tipo='guany'):
         gain_ratio_max = -1
         caracteristica_max = None
         caracteristicas = X_train.columns.drop(atributo)
 
         for carac in caracteristicas:
-            gain_ratio = self.gain_ratio(X_train, clases, atributo, carac)
+            if tipo == 'guany':
+                gain_ratio = self.gain_ratio_guany(X_train, clases, atributo, carac)
+            else:  # asumimos que cualquier otro valor para 'tipo' debería usar 'gini'
+                gain_ratio = self.gain_ratio_gini(X_train, clases, atributo, carac)
+
             if gain_ratio_max < gain_ratio:
                 gain_ratio_max = gain_ratio
                 caracteristica_max = carac
