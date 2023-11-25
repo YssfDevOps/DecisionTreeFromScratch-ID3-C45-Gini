@@ -74,9 +74,55 @@ class DecisionTreeCasifier:
 
         return caracteristica_info
 
-    
+    def calculo_ganancia_info(self, X_train, clases, atributo):
+        ganancia_info_total = 0
+        dim_fila = X_train.shape[0]
 
+        for clase in clases:
+            num_total_clases = X_train[X_train[atributo] == clase].shape[0]
+            ganancia_info_total_clase = - (num_total_clases / dim_fila) * np.log2(num_total_clases / dim_fila)
+            ganancia_info_total += ganancia_info_total_clase
 
+        return ganancia_info_total
+
+    def calculo_gini(self, datos_atributo, clases, atributo):
+        gini_total = 1
+        dim_fila = datos_atributo.shape[0]
+
+        for clase in clases:
+            num_total_atributo = datos_atributo[datos_atributo[atributo] == clase].shape[0]
+            prob = num_total_atributo / dim_fila
+            gini_total -= prob ** 2
+
+        return gini_total
+
+    def gain_ratio(self, X_train, clases, atributo, caracteristica):
+        split_info = 0
+        dim_fila = X_train.shape[0]
+        valors_caracteristica = X_train[caracteristica].unique()
+
+        for carac in valors_caracteristica:
+            carac_datos = X_train[X_train[caracteristica] == carac]
+            carac_dim = carac_datos.shape[0]
+            carac_probabilidad = carac_dim / dim_fila
+            carac_ganancia_info = self.calculo_ganancia_info(carac_datos, clases, atributo)
+            split_info -= carac_probabilidad * np.log2(carac_probabilidad) if carac_probabilidad > 0 else 0
+
+        gain_ratio = (self.calculo_ganancia_info(X_train, clases, atributo) - carac_ganancia_info) / split_info
+        return gain_ratio
+
+    def C45(self, X_train, clases, atributo):
+        gain_ratio_max = -1
+        caracteristica_max = None
+        caracteristicas = X_train.columns.drop(atributo)
+
+        for carac in caracteristicas:
+            gain_ratio = self.gain_ratio(X_train, clases, atributo, carac)
+            if gain_ratio_max < gain_ratio:
+                gain_ratio_max = gain_ratio
+                caracteristica_max = carac
+
+        return caracteristica_max
 
     def SplitCriterion(self, dataset, X_train, label):  # {'ID3_Entropy', 'C45_Entropy', 'ID3_Gini', 'C45_Gini'}
         if self.criterion == 'ID3_Gini':  # ID 3 Gini
