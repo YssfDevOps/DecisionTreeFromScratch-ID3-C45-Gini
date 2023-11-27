@@ -1,5 +1,5 @@
 import numpy as np
-from collections import deque
+
 
 # Classe Node
 class Node:
@@ -10,21 +10,69 @@ class Node:
         self.childs = None
 
 
-class DecisionTreeClassifier:
+class DecisionTreeClassifier():
     def __init__(self, nombres_atributos, criterion='ID3'):
         self.nodo = None
-        self.criterion = criterion  # {'ID3_Entropy', 'C45_Entropy', 'ID3_Gini', 'C45_Gini'}
+        self.criterion = criterion  # {'ID3', 'C45', 'Gini'}
         self.X = None
         self.nombres_atributos = nombres_atributos
         self.etiquetas = None
         self.categoriasEtiquetas = None
-        self.conteo = None
-        self.entropia = None
 
     def __str__(self):  # Print tree
-        if self.root_node.is_leaf_node():
-            return f"There is no tree to be printed!"
-        self.print_tree(self.root_node)
+        self.print_tree()
+
+    def SplitCriterion(self):  # {'ID3', 'C45', 'Gini'}
+        if self.criterion == 'C45':  # C4.5 Entropy
+            return self.C45()
+        elif self.criterion == 'Gini':  # C4.5 Gini
+            return self.Gini()
+        else:  # ID3_Entropy by default
+            return self.ID3()  # ID 3 Entropy
+
+    def predict_rec(self, X, node):
+        if node.childs is not None:
+            # Find best node
+            value = X[self.nombres_atributos.index(node.value)]
+            diff_list = [pow(value - n.value, 2) for n in node.childs]
+            return self.predict_rec(X, node.childs[diff_list.index(min(diff_list))])
+        elif node.next is not None:
+            return self.predict_rec(X, node.next)
+        else:
+            return node.value
+
+    def predict(self, X):
+        return [self.predict_rec(x, self.nodo) for x in X]
+
+    def fit(self, X, y):
+        if len(X) != len(y):
+            raise ValueError("X_train and y_train must have the same number of samples")
+        # Inicializar variables en base a los datos
+        self.X = X
+        self.etiquetas = y
+        self.categoriasEtiquetas = list(set(y))
+
+        self.SplitCriterion()
+
+    def print_tree(self, nodo=None, nivel=0):
+        if not nodo:
+            nodo = self.nodo
+
+        indent = ' ' * nivel * 4
+        print(f'{indent}{nodo.value}')
+
+        if nodo.childs:
+            for child in nodo.childs:
+                print(f'{indent}({child.value})')
+                self.print_tree(child.next, nivel + 1)
+        elif nodo.next:
+            print(f'{indent}{nodo.next}')
+
+    """
+    ====================================================
+    CODIGO ID3
+    ====================================================
+    """
 
     def calcular_entropy(self, lista_attr):
         etiquetas = [self.etiquetas[i] for i in lista_attr]
@@ -56,21 +104,12 @@ class DecisionTreeClassifier:
         print('')
 
     def ID3Recursive(self, lista_attr, caracteristicas_attr, nodo):
-        """ID3 algorithm. It is called recursively until some criteria is met.
-                Parameters
-                __________
-                :param x_ids: list, list containing the samples ID's
-                :param feature_ids: list, List containing the feature ID's
-                :param node: object, An instance of the class Nodes
-                __________
-                :returns: An instance of the class Node containing all the information of the nodes in the Decision Tree
-                """
         if not nodo:
             nodo = Node()  # initialize nodes
 
         attribute = [self.etiquetas[x] for x in lista_attr]
 
-        # SPLIT CRITERION
+        # StoppingCriterion
         if len(set(attribute)) == 1:
             nodo.value = self.etiquetas[lista_attr[0]]
             return nodo
@@ -81,13 +120,13 @@ class DecisionTreeClassifier:
         best_feature_name, best_feature_id = self.obtener_maxima_ganancia_informacion(lista_attr, caracteristicas_attr)
         nodo.value = best_feature_name
         nodo.childs = []
-        # value of the chosen feature for each instance
-        feature_values = list(set([self.X[x][best_feature_id] for x in lista_attr]))
-        # loop through all the values
-        for value in feature_values:
+
+        valors_caracteristiques = list(set([self.X[x][best_feature_id] for x in lista_attr]))
+
+        for value in valors_caracteristiques:
             child = Node()
-            child.value = value  # add a branch from the node to each feature value in our feature
-            nodo.childs.append(child)  # append new child node to current node
+            child.value = value
+            nodo.childs.append(child)
             child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
             if not child_x_ids:
                 child.next = max(set(attribute), key=attribute.count)
@@ -100,54 +139,143 @@ class DecisionTreeClassifier:
                 child.next = self.ID3Recursive(child_x_ids, caracteristicas_attr, child.next)
         return nodo
 
-
-    def C45(self, X_train, clases, atributo, tipo=1):
-        pass
-
-    def SplitCriterion(self, X_train, clases, atributo):  # {'ID3', 'C45_Entropy', 'C45_Guany'}
-        if self.criterion == 'C45_Guany':  # C4.5 Entropy
-            return self.C45(X_train, clases, atributo, 1)
-        elif self.criterion == 'C45_Gini':  # C4.5 Gini
-            return self.C45(X_train, clases, atributo, 0)
-        else:  # ID3_Entropy by default
-            return self.ID3(X_train, clases, atributo)  # ID 3 Entropy
-
-    def predict_rec(self, X, node):
-        if node.is_leaf_node():
-            return node.value
-        elif X[node.feature] <= node.value:
-            return self.predict_rec(X, node.left)
+    """
+    ====================================================
+    CODIGO C4.5
+    ====================================================
+    """
+    def calcular_ratio_ganancia(self, lista_attr, id_caracteristica):
+        ganancia_info = self.calcular_ganancia_informacion(lista_attr, id_caracteristica)
+        caracteristicas = [self.X[x][id_caracteristica] for x in lista_attr]
+        valuees_caracteristicas = list(set(caracteristicas))
+        conteo_valuees_caracteristicas = [caracteristicas.count(x) for x in valuees_caracteristicas]
+        attr_valuees_caracteristicas = [[lista_attr[i] for i, x in enumerate(caracteristicas) if x == y] for y in
+                                        valuees_caracteristicas]
+        split_info = -sum(
+            [conteo_valuees / len(lista_attr) * np.log2(conteo_valuees / len(lista_attr)) if conteo_valuees else 0
+             for conteo_valuees in conteo_valuees_caracteristicas])
+        if split_info == 0:
+            return 0
         else:
-            return self.predict_rec(X, node.right)
+            return ganancia_info / split_info
 
-    def predict(self, X):
-        return self.predict_rec(X, self.root_node)
+    def obtener_maxima_ratio_ganancia(self, attr_muestras, attr_atributos):
+        ratio_ganancia_atributos = [self.calcular_ratio_ganancia(attr_muestras, id_atributo) for id_atributo in
+                                    attr_atributos]
+        id_maximo = attr_atributos[ratio_ganancia_atributos.index(max(ratio_ganancia_atributos))]
+        return self.nombres_atributos[id_maximo], id_maximo
 
-    def fit(self, X, y):
-        if len(X) != len(y):
-            raise ValueError("X_train and y_train must have the same number of samples")
-        # Inicializar variables en base a los datos
-        self.X = X
-        self.etiquetas = y
-        self.categoriasEtiquetas = list(set(y))
-        self.conteo = [list(y).count(x) for x in self.categoriasEtiquetas]
-        self.entropia = self.calcular_entropy([x for x in range(len(self.etiquetas))])  # calculates the initial entropy
+    def C45(self):
+        lista_attr = [x for x in range(len(self.X))]
+        caracteristicas_attr = [x for x in range(len(self.nombres_atributos))]
+        self.nodo = self.C45Recursive(lista_attr, caracteristicas_attr, self.nodo)
+        print('')
 
-        self.ID3() # Aqui va lo de decidir el criterio
+    def C45Recursive(self, lista_attr, caracteristicas_attr, nodo):
+        if not nodo:
+            nodo = Node()  # initialize nodes
 
+        attribute = [self.etiquetas[x] for x in lista_attr]
 
-    def print_tree(self):
-        if not self.nodo:
-            return
-        nodes = deque()
-        nodes.append(self.nodo)
-        while len(nodes) > 0:
-            node = nodes.popleft()
-            print(node.value)
-            if node.childs:
-                for child in node.childs:
-                    print('({})'.format(child.value))
-                    nodes.append(child.next)
-            elif node.next:
-                print(node.next)
+        # StoppingCriterion
+        if len(set(attribute)) == 1:
+            nodo.value = self.etiquetas[lista_attr[0]]
+            return nodo
+        if len(caracteristicas_attr) == 0:
+            nodo.value = max(set(attribute), key=attribute.count)  # compute mode
+            return nodo
+
+        best_feature_name, best_feature_id = self.obtener_maxima_ratio_ganancia(lista_attr, caracteristicas_attr)
+        nodo.value = best_feature_name
+        nodo.childs = []
+
+        valors_caracteristiques = list(set([self.X[x][best_feature_id] for x in lista_attr]))
+
+        for value in valors_caracteristiques:
+            child = Node()
+            child.value = value
+            nodo.childs.append(child)
+            child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
+            if not child_x_ids:
+                child.next = max(set(attribute), key=attribute.count)
+                print('')
+            else:
+                if caracteristicas_attr and best_feature_id in caracteristicas_attr:
+                    to_remove = caracteristicas_attr.index(best_feature_id)
+                    caracteristicas_attr.pop(to_remove)
+                # recursively call the algorithm
+                child.next = self.C45Recursive(child_x_ids, caracteristicas_attr, child.next)
+        return nodo
+
+    """
+    ====================================================
+    CODIGO GINI
+    ====================================================
+    """
+
+    def calcular_gini(self, lista_attr):
+        etiquetas = [self.etiquetas[i] for i in lista_attr]
+        conteo_etiquetas = [etiquetas.count(x) / len(lista_attr) for x in set(etiquetas)]
+        gini = 1 - sum([(conteo ** 2) for conteo in conteo_etiquetas])
+        return gini
+
+    def calcular_ganancia_gini(self, lista_attr, id_caracteristica):
+        gini = self.calcular_gini(lista_attr)
+        caracteristicas = [self.X[x][id_caracteristica] for x in lista_attr]
+        valores_caracteristicas = list(set(caracteristicas))
+        conteo_valores_caracteristicas = [caracteristicas.count(x) for x in valores_caracteristicas]
+        attr_valores_caracteristicas = [[lista_attr[i] for i, x in enumerate(caracteristicas) if x == y] for y in
+                                        valores_caracteristicas]
+        ganancia_gini = gini - sum(
+            [(conteo_valores / len(lista_attr)) * self.calcular_gini(ids_valores) for conteo_valores, ids_valores in
+             zip(conteo_valores_caracteristicas, attr_valores_caracteristicas)])
+        return ganancia_gini
+
+    def obtener_maxima_ganancia_gini(self, attr_muestras, attr_atributos):
+        gini_atributos = [self.calcular_ganancia_gini(attr_muestras, id_atributo) for id_atributo in attr_atributos]
+        id_maximo = attr_atributos[gini_atributos.index(max(gini_atributos))]
+        return self.nombres_atributos[id_maximo], id_maximo
+
+    def Gini(self):
+        lista_attr = [x for x in range(len(self.X))]
+        caracteristicas_attr = [x for x in range(len(self.nombres_atributos))]
+        self.nodo = self.GiniRecursive(lista_attr, caracteristicas_attr, self.nodo)
+        print('')
+
+    def GiniRecursive(self, lista_attr, caracteristicas_attr, nodo):
+        if not nodo:
+            nodo = Node()  # initialize nodes
+
+        attribute = [self.etiquetas[x] for x in lista_attr]
+
+        # StoppingCriterion
+        if len(set(attribute)) == 1:
+            nodo.value = self.etiquetas[lista_attr[0]]
+            return nodo
+        if len(caracteristicas_attr) == 0:
+            nodo.value = max(set(attribute), key=attribute.count)  # compute mode
+            return nodo
+
+        best_feature_name, best_feature_id = self.obtener_maxima_ganancia_gini(lista_attr, caracteristicas_attr)
+        nodo.value = best_feature_name
+        nodo.childs = []
+
+        valors_caracteristiques = list(set([self.X[x][best_feature_id] for x in lista_attr]))
+
+        for value in valors_caracteristiques:
+            child = Node()
+            child.value = value
+            nodo.childs.append(child)
+            child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
+            if not child_x_ids:
+                child.next = max(set(attribute), key=attribute.count)
+                print('')
+            else:
+                if caracteristicas_attr and best_feature_id in caracteristicas_attr:
+                    to_remove = caracteristicas_attr.index(best_feature_id)
+                    caracteristicas_attr.pop(to_remove)
+                # recursively call the algorithm
+                child.next = self.GiniRecursive(child_x_ids, caracteristicas_attr, child.next)
+        return nodo
+
 
