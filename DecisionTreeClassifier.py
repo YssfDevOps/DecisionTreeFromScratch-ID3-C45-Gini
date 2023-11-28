@@ -20,7 +20,8 @@ class DecisionTreeClassifier():
         self.categoriasEtiquetas = None
 
     def __str__(self):  # Print tree
-        self.print_tree()
+        pass
+        #self.print_tree()
 
     def SplitCriterion(self):  # {'ID3', 'C45', 'Gini'}
         if self.criterion == 'C45':  # C4.5 Entropy
@@ -53,6 +54,7 @@ class DecisionTreeClassifier():
         self.categoriasEtiquetas = list(set(y))
 
         self.SplitCriterion()
+
 
     def print_tree(self, nodo=None, nivel=0):
         if not nodo:
@@ -101,7 +103,7 @@ class DecisionTreeClassifier():
         lista_attr = [x for x in range(len(self.X))]
         caracteristicas_attr = [x for x in range(len(self.nombres_atributos))]
         self.nodo = self.ID3Recursive(lista_attr, caracteristicas_attr, self.nodo)
-        print('')
+        #print('')
 
     def ID3Recursive(self, lista_attr, caracteristicas_attr, nodo):
         if not nodo:
@@ -130,7 +132,7 @@ class DecisionTreeClassifier():
             child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
             if not child_x_ids:
                 child.next = max(set(attribute), key=attribute.count)
-                print('')
+                #print('')
             else:
                 if caracteristicas_attr and best_feature_id in caracteristicas_attr:
                     to_remove = caracteristicas_attr.index(best_feature_id)
@@ -169,7 +171,7 @@ class DecisionTreeClassifier():
         lista_attr = [x for x in range(len(self.X))]
         caracteristicas_attr = [x for x in range(len(self.nombres_atributos))]
         self.nodo = self.C45Recursive(lista_attr, caracteristicas_attr, self.nodo)
-        print('')
+        #print('')
 
     def C45Recursive(self, lista_attr, caracteristicas_attr, nodo):
         if not nodo:
@@ -198,7 +200,7 @@ class DecisionTreeClassifier():
             child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
             if not child_x_ids:
                 child.next = max(set(attribute), key=attribute.count)
-                print('')
+                #print('')
             else:
                 if caracteristicas_attr and best_feature_id in caracteristicas_attr:
                     to_remove = caracteristicas_attr.index(best_feature_id)
@@ -240,7 +242,7 @@ class DecisionTreeClassifier():
         lista_attr = [x for x in range(len(self.X))]
         caracteristicas_attr = [x for x in range(len(self.nombres_atributos))]
         self.nodo = self.GiniRecursive(lista_attr, caracteristicas_attr, self.nodo)
-        print('')
+        #print('')
 
     def GiniRecursive(self, lista_attr, caracteristicas_attr, nodo):
         if not nodo:
@@ -269,7 +271,7 @@ class DecisionTreeClassifier():
             child_x_ids = [x for x in lista_attr if self.X[x][best_feature_id] == value]
             if not child_x_ids:
                 child.next = max(set(attribute), key=attribute.count)
-                print('')
+                #print('')
             else:
                 if caracteristicas_attr and best_feature_id in caracteristicas_attr:
                     to_remove = caracteristicas_attr.index(best_feature_id)
