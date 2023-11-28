@@ -1,4 +1,5 @@
 import numpy as np
+import graphviz
 
 
 # Classe Node
@@ -30,6 +31,50 @@ class DecisionTreeClassifier():
             return self.Gini()
         else:  # ID3_Entropy by default
             return self.ID3()  # ID 3 Entropy
+
+    def calcular_entropia_atr(self, y):
+        clases, conteo = np.unique(y, return_counts=True)
+        probabilidades = conteo / len(y)
+        entropia = -np.sum(probabilidades * np.log2(probabilidades))
+        return entropia
+
+    def particion_binaria(self, X, y):
+        # X: Atributo continuo
+        # y: Etiquetas de clase
+
+        # Ordenar los valores del atributo en orden ascendente
+        indices_ordenados = np.argsort(X)
+        X_ordenado = X[indices_ordenados]
+        y_ordenado = y[indices_ordenados]
+
+        mejor_ganancia = 0
+        mejor_punto_particion = None
+
+        for i in range(1, len(X_ordenado)):
+            # Calcular punto medio
+            punto_medio = (X_ordenado[i - 1] + X_ordenado[i]) / 2
+
+            # Particionar los datos
+            izquierda = y_ordenado[X_ordenado <= punto_medio]
+            derecha = y_ordenado[X_ordenado > punto_medio]
+
+            # Calcular la ganancia de información (en este caso, la reducción de entropía)
+            ganancia = self.calcular_entropia_atr(y_ordenado) - (
+                    (len(izquierda) / len(y_ordenado)) * self.calcular_entropia_atr(izquierda) +
+                    (len(derecha) / len(y_ordenado)) * self.calcular_entropia_atr(derecha)
+            )
+
+            # Actualizar si encontramos una ganancia mejor
+            if ganancia > mejor_ganancia:
+                mejor_ganancia = ganancia
+                mejor_punto_particion = punto_medio
+
+        return mejor_punto_particion, mejor_ganancia
+
+    def tracta_atributs_continus(self, X_train, y_train):
+        mejor_punto, ganancia = self.particion_binaria(X_train, y_train)
+
+        
 
     def predict_rec(self, X, node):
         if node.childs is not None:
@@ -69,6 +114,32 @@ class DecisionTreeClassifier():
                 self.print_tree(child.next, nivel + 1)
         elif nodo.next:
             print(f'{indent}{nodo.next}')
+
+    def build_graph(self, graph, nodo=None, path=""):
+        if not nodo:
+            nodo = self.nodo
+            path = nodo.value
+            graph.node(path)
+
+        # Comprovar que l'arbre no esta buit
+        if nodo.childs:
+            for child in nodo.childs:
+                if child.next.childs:
+                    # Crida recursiva
+                    graph.node(path+child.next.value, label=nodo.value+"="f'{child.value}'+"\n"+child.next.value)
+                    graph.edge(path, path+child.next.value)
+                    self.build_graph(graph, child.next, path+child.next.value)
+                else:
+                    # Cas fulla
+                    graph.node(path+f'{child.value}'+f'{child.next.value}', label=nodo.value+"="f'{child.value}'+"\n"+f'{child.value}')
+                    graph.edge(path, path+f'{child.value}'+f'{child.next.value}')
+
+    def print_tree_graph(self, output_file_path='output_graph'):
+        graph = graphviz.Digraph(format='png', engine='dot')
+        self.build_graph(graph)
+        # Save the graph to a file
+        graph.render(output_file_path, format='png', cleanup=True)
+
 
     """
     ====================================================
