@@ -120,8 +120,8 @@ def main():
     print("\nPorcentaje de NaNs por columna:")
     print(nan_percentage)
 
-    # Tractament de valors buits APARTAT C.
-    df = remove_missing_values(df)
+    # Tractament de valors buits APARTAT C (Està comentat, ja que utilitzem el tractament de valors buit de l'apartat B)
+    # df = remove_missing_values(df)
 
     # Tractament de valors buits APARTAT B.
     imputer = SimpleImputer(strategy='mean')
