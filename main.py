@@ -2,16 +2,40 @@ __authors__ = ['1638618, 1636517, 1633311']
 __group__ = 'GM08:30_3'
 
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import cross_val_score, LeaveOneOut
 from DecisionTreeClassifier import DecisionTreeClassifier
 import sys
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import warnings
 from sklearn.exceptions import UndefinedMetricWarning
+import numpy as np
+import graphviz
 
+
+def parse_tree(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    return lines
+
+def build_graph(tree_lines, graph, parent=None):
+
+    value = 0
+    for line in tree_lines:
+        node = line.strip().split()
+        if node.startswith('('):
+            # Leaf node
+            graph.node(value, label=f"{node}\n{value}")
+            if parent is not None:
+                graph.edge(parent, value)
+        else:
+            # Non-leaf node
+            graph.node(value, label=node)
+            if parent is not None:
+                graph.edge(parent, value)
+            sub_lines = tree_lines[tree_lines.index(line) + 1:]
+            sub_lines = [sub_line for sub_line in sub_lines if sub_line.startswith('\t')]
+            build_graph(sub_lines, graph, parent=value)
 
 def printSection(title):
     print("====================================================")
@@ -181,7 +205,7 @@ def main():
         mean_kfold_f1.append(k_fold(10, X_train, y_train, tree_clf))
     print(mean_kfold_f1)
     # El criteri ID3 ens hauria de donar un major f1-score de promitg
-    print("Best criterion C45")
+    print("Best criterion ID3")
 
     # LOOCV (NOTA: ESTA PARTE DEL CODIGO TARDA BASTANTE YA QUE EL DATASET ES UN POCO GRANDE)
     #mean_loocv_f1 = []
@@ -202,7 +226,8 @@ def main():
     tree_clf.fit(X=X_train, y=y_train)
 
     # Visualització de l'arbre
-    tree_clf.print_tree()
+    tree_clf.print_tree_graph(output_file_path='mobile_dataset_ID3')
+    #tree_clf.print_tree()
     # save_tree(tree_clf, t)
 
     y_pred = tree_clf.predict(X_test)
@@ -243,7 +268,7 @@ def main_titanic():
     # Separate target from predictors
     X = np.array(dft.drop('Survived', axis=1).copy())
     y = np.array(dft['Survived'].copy())
-    feature_names = list(dft.columns)[:-1]  # Assuming the last column is the target variable
+    feature_names = list(dft.columns)[1:]  # Assuming the last column is the target variable
 
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -277,7 +302,8 @@ def main_titanic():
     tree_clf.fit(X=X_train, y=y_train)
 
     # Visualització de l'arbre
-    tree_clf.print_tree()
+    tree_clf.print_tree_graph(output_file_path='titanic_dataset_C45')
+    #tree_clf.print_tree()
     # save_tree(tree_clf, t)
 
     y_pred = tree_clf.predict(X_test)
@@ -290,7 +316,7 @@ def main_titanic():
 
 
 if __name__ == "__main__":
-    # A
+    # C
     main()
     # B
     main_titanic()
