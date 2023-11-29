@@ -10,7 +10,6 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import warnings
 from sklearn.exceptions import UndefinedMetricWarning
 import numpy as np
-import graphviz
 
 
 def parse_tree(file_path):

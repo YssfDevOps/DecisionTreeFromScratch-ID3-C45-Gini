@@ -31,50 +31,50 @@ class DecisionTreeClassifier():
             return self.Gini()
         else:  # ID3_Entropy by default
             return self.ID3()  # ID 3 Entropy
-
-    def calcular_entropia_atr(self, y):
-        clases, conteo = np.unique(y, return_counts=True)
-        probabilidades = conteo / len(y)
-        entropia = -np.sum(probabilidades * np.log2(probabilidades))
-        return entropia
-
-    def particion_binaria(self, X, y):
-        # X: Atributo continuo
-        # y: Etiquetas de clase
-
-        # Ordenar los valores del atributo en orden ascendente
-        indices_ordenados = np.argsort(X)
-        X_ordenado = X[indices_ordenados]
-        y_ordenado = y[indices_ordenados]
-
-        mejor_ganancia = 0
-        mejor_punto_particion = None
-
-        for i in range(1, len(X_ordenado)):
-            # Calcular punto medio
-            punto_medio = (X_ordenado[i - 1] + X_ordenado[i]) / 2
-
-            # Particionar los datos
-            izquierda = y_ordenado[X_ordenado <= punto_medio]
-            derecha = y_ordenado[X_ordenado > punto_medio]
-
-            # Calcular la ganancia de información (en este caso, la reducción de entropía)
-            ganancia = self.calcular_entropia_atr(y_ordenado) - (
-                    (len(izquierda) / len(y_ordenado)) * self.calcular_entropia_atr(izquierda) +
-                    (len(derecha) / len(y_ordenado)) * self.calcular_entropia_atr(derecha)
-            )
-
-            # Actualizar si encontramos una ganancia mejor
-            if ganancia > mejor_ganancia:
-                mejor_ganancia = ganancia
-                mejor_punto_particion = punto_medio
-
-        return mejor_punto_particion, mejor_ganancia
-
-    def tracta_atributs_continus(self, X_train, y_train):
-        mejor_punto, ganancia = self.particion_binaria(X_train, y_train)
-
-        
+    """
+        def particion_binaria(self, X_train, id_atributo):
+            # X: Atributo continuo
+            # y: Etiquetas de clase
+    
+            # Ordenar los valores del atributo en orden ascendente
+    
+            indices_ordenados = np.argsort(X_train[id_atributo])
+            X_ordenado = X_train[indices_ordenados, :]
+            y_ordenado = X_ordenado[-1, :] #cogemos todas las filas de la ultima columna - target
+    
+            mejor_ganancia = 0
+            mejor_punto_particion = None
+    
+            for i in range(1, len(y_ordenado)):
+                # Calcular punto medio
+                punto_medio = (X_ordenado[id_atributo][i - 1] + X_ordenado[id_atributo][i]) / 2
+    
+                # Particionar los datos
+                izquierda = X_ordenado[:][X_ordenado <= punto_medio]
+                derecha = X_ordenado[:][X_ordenado > punto_medio]
+    
+                # Calcular la ganancia
+                if self.criterion == 'C45':  # C4.5 Entropy
+                    ganancia = self.calcular_ratio_ganancia(X_ordenado, id_atributo) - (
+                            (len(izquierda) / len(y_ordenado)) * self.calcular_ratio_ganancia(izquierda, id_atributo) +
+                            (len(derecha) / len(y_ordenado)) * self.calcular_ratio_ganancia(derecha, id_atributo)
+                    )
+                elif self.criterion == 'Gini':  # C4.5 Gini
+                    ganancia = self.calcular_ganancia_gini(X_ordenado, id_atributo) - (
+                            (len(izquierda) / len(y_ordenado)) * self.calcular_ganancia_gini(izquierda, id_atributo) +
+                            (len(derecha) / len(y_ordenado)) * self.calcular_ganancia_gini(derecha, id_atributo))
+                else:  # ID3_Entropy by default
+                    ganancia = self.calcular_ganancia_informacion(X_ordenado, id_atributo) - (
+                            (len(izquierda) / len(y_ordenado)) * self.calcular_ganancia_informacion(izquierda, id_atributo) +
+                            (len(derecha) / len(y_ordenado)) * self.calcular_ganancia_informacion(derecha, id_atributo))
+    
+                # Actualizar si encontramos una ganancia mejor
+                if ganancia > mejor_ganancia:
+                    mejor_ganancia = ganancia
+                    mejor_punto_particion = punto_medio
+    
+            return mejor_ganancia #mejor_punto_particion no lo usamos
+    """
 
     def predict_rec(self, X, node):
         if node.childs is not None:
@@ -167,6 +167,15 @@ class DecisionTreeClassifier():
 
     def obtener_maxima_ganancia_informacion(self, attr_muestras, attr_atributos):
         entropia_atributos = [self.calcular_ganancia_informacion(attr_muestras, id_atributo) for id_atributo in attr_atributos]
+        """
+        entropia_atributos = []
+        for id_atributo in attr_atributos:
+            if (self.X[id_atributo].dtype == "int64" or self.X[id_atributo].dtype == "float64"):
+                ganancia = self.particion_binaria(self.X, id_atributo)
+            else:
+                ganancia = self.calcular_ganancia_informacion(attr_muestras, id_atributo)
+            entropia_atributos.append(ganancia)
+        """
         id_maximo = attr_atributos[entropia_atributos.index(max(entropia_atributos))]
         return self.nombres_atributos[id_maximo], id_maximo
 
