@@ -1,6 +1,3 @@
-__authors__ = ['1638618, 1636517, 1633311']
-__group__ = 'GM08:30_3'
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
